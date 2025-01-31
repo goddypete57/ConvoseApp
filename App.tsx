@@ -1,118 +1,152 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
+  FlatList,
+  Image,
+  Platform,
   StatusBar,
-  StyleSheet,
   Text,
-  useColorScheme,
+  TextInput,
   View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
-
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+import colors from './assets/colors/Colors';
+import endpoints from './assets/endpoint/EndPoint';
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  if (Platform.OS === 'ios') {
+    StatusBar.setBarStyle('dark-content', true);
+  }
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const [search, setSearch] = useState('');
+  const [interests, setInterests] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagesLeft, setPagesLeft] = useState(0);
+  const [offset, setOffset] = useState(0);
+
+  const fetchInterests = async (query: string) => {
+    if (!query.trim()) {
+      setInterests([]);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${endpoints.baseUrl}${endpoints.interest}?q=${query}&limit=100&from=0`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `${endpoints.token}`,
+            Accept: 'application/json',
+          },
+        },
+      );
+      const data = await response.json();
+      console.log('API Response:', data);
+      let fetchedInterests = data.autocomplete || [];
+      const searchedWord = query.trim().toLowerCase();
+      const exactMatches = fetchedInterests.filter(
+        item => item.name.toLowerCase() === searchedWord,
+      );
+      const otherMatches = fetchedInterests.filter(
+        item => item.name.toLowerCase() !== searchedWord,
+      );
+      otherMatches.sort((a, b) => b.match - a.match);
+      const combinedInterests = [...exactMatches, ...otherMatches];
+
+      setInterests(combinedInterests);
+    } catch (error) {
+      console.error('Error fetching interests:', error);
+    }
   };
 
+  useEffect(() => {
+    const delaySearch = setTimeout(() => {
+      fetchInterests(search);
+    }, 200); // 300ms debounce
+
+    return () => clearTimeout(delaySearch);
+  }, [search]);
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
+    <>
+      <KeyboardAvoidingView
+        style={{flex: 1, backgroundColor: colors.background, paddingTop: 20}}>
+        <View
+          style={{height: '100%', paddingHorizontal: 16, paddingBottom: 15}}>
+          {/* Search Input */}
+
+          {/* Interests List */}
+          {interests.length === 0 && !loading ? (
+            <View style={{flex: 1, justifyContent: 'center'}}>
+              <Text
+                style={{
+                  textAlign: 'center',
+                  marginTop: 20,
+                  fontSize: 18,
+                  color: 'gray',
+                }}>
+                Please search
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={interests}
+              showsVerticalScrollIndicator={false}
+              renderItem={({item}) => (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingTop: 16,
+                  }}>
+                  <Image
+                    style={{height: 25, width: 25, borderRadius: 15}}
+                    source={{
+                      uri: item.avatar || 'https://picsum.photos/200/300',
+                    }} // Default image if no avatar
+                  />
+                  <Text
+                    style={{
+                      marginLeft: 10,
+                      color: colors.black,
+                      fontSize: 16,
+                      fontFamily: 'Montserrat-Bold',
+                    }}>
+                    {item.name}
+                  </Text>
+                </View>
+              )}
+              inverted
+              keyExtractor={item => item.id.toString()}
+            />
+          )}
+        </View>
+      </KeyboardAvoidingView>
+      <View style={{backgroundColor: colors.background}}>
         <View
           style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
+            backgroundColor: colors.white,
+            paddingHorizontal: 16,
+            borderTopEndRadius: 16,
+            borderTopLeftRadius: 16,
+            paddingVertical: 16,
           }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+          <TextInput
+            style={{
+              height: 50,
+              backgroundColor: colors.background,
+              color: 'black',
+              paddingLeft: 10,
+              borderRadius: 30,
+            }}
+            placeholder="Search interests..."
+            placeholderTextColor={'black'}
+            onChangeText={text => setSearch(text)}
+            value={search}
+          />
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
