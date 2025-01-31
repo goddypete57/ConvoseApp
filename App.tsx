@@ -20,9 +20,8 @@ function App(): React.JSX.Element {
 
   const [search, setSearch] = useState('');
   const [interests, setInterests] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [pagesLeft, setPagesLeft] = useState(0);
-  const [offset, setOffset] = useState(0);
+
+ 
 
   const fetchInterests = async (query: string) => {
     if (!query.trim()) {
@@ -72,10 +71,9 @@ function App(): React.JSX.Element {
         style={{flex: 1, backgroundColor: colors.background, paddingTop: 20}}>
         <View
           style={{height: '100%', paddingHorizontal: 16, paddingBottom: 15}}>
-          {/* Search Input */}
 
           {/* Interests List */}
-          {interests.length === 0 && !loading ? (
+          {interests.length === 0  ? (
             <View style={{flex: 1, justifyContent: 'center'}}>
               <Text
                 style={{
