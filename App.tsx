@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useCallback} from 'react';
 import {
   FlatList,
   Image,
@@ -19,13 +19,12 @@ function App(): React.JSX.Element {
   }
 
   const [search, setSearch] = useState('');
-  const [interests, setInterests] = useState([]);
-
- 
+  const [allInterests, setAllInterests] = useState([]);
+  const [filteredInterests, setFilteredInterests] = useState([]);
 
   const fetchInterests = async (query: string) => {
     if (!query.trim()) {
-      setInterests([]);
+      setFilteredInterests([]);
       return;
     }
     try {
@@ -40,40 +39,56 @@ function App(): React.JSX.Element {
         },
       );
       const data = await response.json();
-      console.log('API Response:', data);
-      let fetchedInterests = data.autocomplete || [];
-      const searchedWord = query.trim().toLowerCase();
-      const exactMatches = fetchedInterests.filter(
-        item => item.name.toLowerCase() === searchedWord,
-      );
-      const otherMatches = fetchedInterests.filter(
-        item => item.name.toLowerCase() !== searchedWord,
-      );
-      otherMatches.sort((a, b) => b.match - a.match);
-      const combinedInterests = [...exactMatches, ...otherMatches];
-
-      setInterests(combinedInterests);
+      const fetchedInterests = data.autocomplete || [];
+      setAllInterests(fetchedInterests);
+      filterInterests(query, fetchedInterests);
     } catch (error) {
       console.error('Error fetching interests:', error);
     }
   };
 
+  const filterInterests = useCallback((query: string, interests = allInterests) => {
+    const searchedWord = query.trim().toLowerCase();
+    const exactMatches = interests.filter(
+      item => item.name.toLowerCase().startsWith(searchedWord),
+    );
+    const otherMatches = interests.filter(
+      item => 
+        item.name.toLowerCase().includes(searchedWord) && 
+        !item.name.toLowerCase().startsWith(searchedWord),
+    );
+    otherMatches.sort((a, b) => b.match - a.match);
+    setFilteredInterests([...exactMatches, ...otherMatches]);
+  }, [allInterests]);
+
   useEffect(() => {
     const delaySearch = setTimeout(() => {
-      fetchInterests(search);
-    }, 200); // 300ms debounce
+      if (search.length >= 1) {
+        const hasMatchingInterests = allInterests.some(interest => 
+          interest.name.toLowerCase().startsWith(search.toLowerCase())
+        );
+        
+        
+        if (!hasMatchingInterests) {
+          fetchInterests(search);
+        } else {
+          filterInterests(search);
+        }
+      } else {
+        setFilteredInterests([]);
+      }
+    }, 200);
 
     return () => clearTimeout(delaySearch);
   }, [search]);
+
   return (
     <>
       <KeyboardAvoidingView
         style={{flex: 1, backgroundColor: colors.background, paddingTop: 20}}>
         <View
           style={{height: '100%', paddingHorizontal: 16, paddingBottom: 15}}>
-
-          {/* Interests List */}
-          {interests.length === 0  ? (
+          {filteredInterests.length === 0 ? (
             <View style={{flex: 1, justifyContent: 'center'}}>
               <Text
                 style={{
@@ -87,7 +102,7 @@ function App(): React.JSX.Element {
             </View>
           ) : (
             <FlatList
-              data={interests}
+              data={filteredInterests}
               showsVerticalScrollIndicator={false}
               renderItem={({item}) => (
                 <View
